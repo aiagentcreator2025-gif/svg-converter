@@ -9,8 +9,6 @@ app = Flask(__name__)
 def convert():
     try:
         raw = request.get_data(as_text=True)
-        
-        # Handle double-encoded JSON
         data = json.loads(raw)
         if isinstance(data, str):
             data = json.loads(data)
