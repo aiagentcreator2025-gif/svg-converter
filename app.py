@@ -61,11 +61,12 @@ def convert():
 
         img = Image.open(io.BytesIO(png_bytes))
         img = img.crop((0, 0, 1080, 1350))
-        webp_buffer = io.BytesIO()
-        img.save(webp_buffer, format='WEBP', quality=90)
-        webp_bytes = webp_buffer.getvalue()
+        img = img.convert('RGB')
+        jpeg_buffer = io.BytesIO()
+        img.save(jpeg_buffer, format='JPEG', quality=92)
+        jpeg_bytes = jpeg_buffer.getvalue()
 
-        img_base64 = base64.b64encode(webp_bytes).decode('utf-8')
+        img_base64 = base64.b64encode(jpeg_bytes).decode('utf-8')
         return jsonify({'webp_base64': img_base64, 'status': 'ok'})
 
     except Exception as e:
