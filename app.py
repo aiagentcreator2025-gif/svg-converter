@@ -1,9 +1,11 @@
 from flask import Flask, request, jsonify
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from PIL import Image
 import base64
 import json
 import time
+import io
 
 app = Flask(__name__)
 
@@ -30,11 +32,17 @@ def convert():
 
         driver = get_driver()
         driver.get('data:text/html;charset=utf-8,' + html)
-        time.sleep(1)
-        screenshot = driver.get_screenshot_as_png()
+        time.sleep(2)
+        png_bytes = driver.get_screenshot_as_png()
         driver.quit()
 
-        img_base64 = base64.b64encode(screenshot).decode('utf-8')
+        # Convert PNG → WEBP
+        img = Image.open(io.BytesIO(png_bytes))
+        webp_buffer = io.BytesIO()
+        img.save(webp_buffer, format='WEBP', quality=90)
+        webp_bytes = webp_buffer.getvalue()
+
+        img_base64 = base64.b64encode(webp_bytes).decode('utf-8')
         return jsonify({'webp_base64': img_base64, 'status': 'ok'})
 
     except Exception as e:
