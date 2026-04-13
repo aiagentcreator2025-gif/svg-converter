@@ -6,6 +6,8 @@ import base64
 import json
 import time
 import io
+import tempfile
+import os
 
 app = Flask(__name__)
 
@@ -16,6 +18,8 @@ def get_driver():
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
     options.add_argument('--window-size=700,700')
+    options.add_argument('--allow-file-access-from-files')
+    options.add_argument('--disable-web-security')
     return webdriver.Chrome(options=options)
 
 @app.route('/convert', methods=['POST'])
@@ -30,10 +34,15 @@ def convert():
         if not html:
             return jsonify({'error': 'No HTML provided'}), 400
 
-        driver = get_driver()
-        driver.get('data:text/html;charset=utf-8,' + html)
+        # Write HTML to temp file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
+            f.write(html)
+            tmp_path = f.name
 
-        # Wait for background image to fully load
+        driver = get_driver()
+        driver.get(f'file://{tmp_path}')
+
+        # Wait for image to load
         driver.execute_script("""
             return new Promise((resolve) => {
                 const img = document.querySelector('img');
@@ -44,10 +53,11 @@ def convert():
                 setTimeout(resolve, 5000);
             });
         """)
-        time.sleep(1)
+        time.sleep(2)
 
         png_bytes = driver.get_screenshot_as_png()
         driver.quit()
+        os.unlink(tmp_path)
 
         # Convert PNG → WEBP
         img = Image.open(io.BytesIO(png_bytes))
