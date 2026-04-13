@@ -17,9 +17,8 @@ def get_driver():
     options.add_argument('--no-sandbox')
     options.add_argument('--disable-dev-shm-usage')
     options.add_argument('--disable-gpu')
-    options.add_argument('--window-size=700,700')
-    options.add_argument('--allow-file-access-from-files')
-    options.add_argument('--disable-web-security')
+    options.add_argument('--window-size=1080,1350')
+    options.add_argument('--force-device-scale-factor=1')
     return webdriver.Chrome(options=options)
 
 @app.route('/convert', methods=['POST'])
@@ -34,15 +33,14 @@ def convert():
         if not html:
             return jsonify({'error': 'No HTML provided'}), 400
 
-        # Write HTML to temp file
         with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as f:
             f.write(html)
             tmp_path = f.name
 
         driver = get_driver()
         driver.get(f'file://{tmp_path}')
+        driver.set_window_size(1080, 1350)
 
-        # Wait for image to load
         driver.execute_script("""
             return new Promise((resolve) => {
                 const img = document.querySelector('img');
@@ -53,15 +51,16 @@ def convert():
                 setTimeout(resolve, 5000);
             });
         """)
+
+        driver.execute_script("document.body.style.overflow='hidden'")
         time.sleep(2)
 
         png_bytes = driver.get_screenshot_as_png()
         driver.quit()
         os.unlink(tmp_path)
 
-        # Convert PNG → WEBP
         img = Image.open(io.BytesIO(png_bytes))
-        img = img.crop((0, 0, 700, 700))
+        img = img.crop((0, 0, 1080, 1350))
         webp_buffer = io.BytesIO()
         img.save(webp_buffer, format='WEBP', quality=90)
         webp_bytes = webp_buffer.getvalue()
