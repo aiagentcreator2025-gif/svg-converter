@@ -32,12 +32,26 @@ def convert():
 
         driver = get_driver()
         driver.get('data:text/html;charset=utf-8,' + html)
-        time.sleep(2)
+
+        # Wait for background image to fully load
+        driver.execute_script("""
+            return new Promise((resolve) => {
+                const img = document.querySelector('img');
+                if (!img) return resolve();
+                if (img.complete) return resolve();
+                img.onload = resolve;
+                img.onerror = resolve;
+                setTimeout(resolve, 5000);
+            });
+        """)
+        time.sleep(1)
+
         png_bytes = driver.get_screenshot_as_png()
         driver.quit()
 
         # Convert PNG → WEBP
         img = Image.open(io.BytesIO(png_bytes))
+        img = img.crop((0, 0, 700, 700))
         webp_buffer = io.BytesIO()
         img.save(webp_buffer, format='WEBP', quality=90)
         webp_bytes = webp_buffer.getvalue()
