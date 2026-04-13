@@ -1,24 +1,20 @@
 from flask import Flask, request, jsonify
-from playwright.sync_api import sync_playwright
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 import base64
 import json
-import os
-import glob
+import time
 
 app = Flask(__name__)
 
-def find_chromium():
-    patterns = [
-        '/opt/render/.cache/ms-playwright/chromium-*/chrome-linux/chrome',
-        '/opt/render/.cache/ms-playwright/chromium_headless_shell-*/chrome-headless-shell-linux64/chrome-headless-shell',
-        '/usr/bin/chromium-browser',
-        '/usr/bin/chromium',
-    ]
-    for pattern in patterns:
-        matches = glob.glob(pattern)
-        if matches:
-            return matches[0]
-    return None
+def get_driver():
+    options = Options()
+    options.add_argument('--headless')
+    options.add_argument('--no-sandbox')
+    options.add_argument('--disable-dev-shm-usage')
+    options.add_argument('--disable-gpu')
+    options.add_argument('--window-size=700,700')
+    return webdriver.Chrome(options=options)
 
 @app.route('/convert', methods=['POST'])
 def convert():
@@ -32,24 +28,11 @@ def convert():
         if not html:
             return jsonify({'error': 'No HTML provided'}), 400
 
-        chromium_path = find_chromium()
-
-        with sync_playwright() as p:
-            launch_args = {
-                'args': ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-            }
-            if chromium_path:
-                launch_args['executable_path'] = chromium_path
-
-            browser = p.chromium.launch(**launch_args)
-            page = browser.new_page(viewport={'width': 700, 'height': 700})
-            page.set_content(html, wait_until='networkidle')
-            screenshot = page.screenshot(
-                type='webp',
-                quality=90,
-                clip={'x': 0, 'y': 0, 'width': 700, 'height': 700}
-            )
-            browser.close()
+        driver = get_driver()
+        driver.get('data:text/html;charset=utf-8,' + html)
+        time.sleep(1)
+        screenshot = driver.get_screenshot_as_png()
+        driver.quit()
 
         img_base64 = base64.b64encode(screenshot).decode('utf-8')
         return jsonify({'webp_base64': img_base64, 'status': 'ok'})
